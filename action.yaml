@@ -26,6 +26,11 @@ inputs:
     required: false
     default: ""
 
+  maturin-sccache:
+    description: "Whether to use sccache"
+    required: false
+    default: ${{ github.event_name == 'pull_request' }}
+
   working-directory:
     description: "Working directory to run the action in"
     required: false
@@ -63,17 +68,19 @@ runs:
     - name: "📊 Phase 1/4: Building instrumented wheel"
       uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
       with:
+        working-directory: ${{ inputs.working-directory }}
+        #
         target: ${{ inputs.target }}
         rust-toolchain: ${{ inputs.rust-toolchain }}
+        sccache: ${{ inputs.maturin-sccache }}
         manylinux: auto
-        working-directory: ${{ inputs.working-directory }}
+        docker-options: -e CI -e RUSTFLAGS
         args: >-
           --release
           --out initial-wheel
           --interpreter ${{ inputs.python-interpreter }}
           ${{ inputs.maturin-build-args }}
           --compatibility pypi
-        docker-options: -e CI -e RUSTFLAGS
       env:
         RUSTFLAGS: >-
           -Cprofile-generate=${{ github.workspace }}/profdata
@@ -105,16 +112,18 @@ runs:
       uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
       with:
         working-directory: ${{ inputs.working-directory }}
+        #
         target: ${{ inputs.target }}
+        rust-toolchain: ${{ inputs.rust-toolchain }}
+        sccache: ${{ inputs.maturin-sccache }}
         manylinux: auto
+        docker-options: -e CI -e RUSTFLAGS
         args: >-
           --release
           --out dist
           --interpreter ${{ inputs.python-interpreter }}
           ${{ inputs.maturin-build-args }}
           --compatibility pypi
-        rust-toolchain: ${{ inputs.rust-toolchain }}
-        docker-options: -e CI -e RUSTFLAGS
       env:
         RUSTFLAGS: >-
           -Cprofile-use=${{ github.workspace }}/merged.profdata
