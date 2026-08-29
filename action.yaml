@@ -43,7 +43,7 @@ inputs:
     description: "Command to run PGO training"
     required: true
 
-  output-directory:
+  wheels-wheels-output-directory:
     description: "Directory to output the built wheel"
     required: false
     default: "dist"
@@ -128,7 +128,7 @@ runs:
         docker-options: -e CI -e RUSTFLAGS
         args: >-
           --release
-          --out ${{ inputs.output-directory }}
+          --out ${{ inputs.wheels-output-directory }}
           --interpreter ${{ inputs.python-interpreter }}
           ${{ inputs.maturin-build-args }}
           --compatibility pypi
@@ -143,12 +143,12 @@ runs:
       shell: bash
       run: |
         echo "📦 Found wheels:"
-        for wheel in "${{ inputs.output-directory }}"/*.whl; do
+        for wheel in "${{ inputs.wheels-output-directory }}"/*.whl; do
           echo "  • $(basename "$wheel")"
         done
       
         {
           echo "path<<EOF"
-          printf '%s\n' "${{ inputs.output-directory }}"/*.whl
+          printf '%s\n' "${{ inputs.wheels-output-directory }}"/*.whl
           echo "EOF"
         } >> "$GITHUB_OUTPUT"
