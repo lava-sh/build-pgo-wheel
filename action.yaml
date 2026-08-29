@@ -43,11 +43,11 @@ inputs:
     description: "Command to run PGO training"
     required: true
 
-  wheels-wheels-output-directory:
+  wheels-output-directory:
     description: "Directory to output the built wheel"
     required: false
     default: "dist"
-  
+
 outputs:
   wheel:
     description: "Path to the built wheel"
