@@ -29,6 +29,10 @@ inputs:
     required: false
     default: ${{ github.event_name == 'pull_request' }}
 
+  python-interpreter:
+    description: "Python interpreter to build the wheel for"
+    required: true
+
   rustflags:
     description: "Additional RUSTFLAGS"
     required: false
