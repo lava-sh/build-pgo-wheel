@@ -4,6 +4,7 @@ import os
 import shlex
 import shutil
 import subprocess
+import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 from pprint import pformat
@@ -21,6 +22,10 @@ def run_cmd(*args: str) -> str:
 
 def green(text: str) -> str:
     return f"\x1b[1m\x1b[92m{text}\x1b[0m"
+
+
+def yellow(text: str) -> str:
+    return f"\x1b[1m\x1b[93m{text}\x1b[0m"
 
 
 @dataclass(frozen=True)
@@ -102,16 +107,49 @@ def wheel_pattern(version: str) -> str:
     return pattern
 
 
-def find_wheel(version: str) -> Path:
-    wheels = glob.glob(wheel_pattern(version))
+def ext_suffix(python: Path) -> str:
+    return run_cmd(
+        str(python),
+        "-c",
+        "import sysconfig; print(sysconfig.get_config_var('EXT_SUFFIX'))",
+    )
 
-    if len(wheels) != 1:
-        msg = f"Expected one wheel, got {wheels}"
+
+def matches(wheel: Path, suffix: str) -> bool:
+    with zipfile.ZipFile(wheel) as archive:
+        names = archive.namelist()
+
+    if any(name.endswith(suffix) for name in names):
+        return True
+
+    binaries = [name for name in names if name.endswith((".so", ".pyd"))]
+
+    if not binaries:
+        return True
+
+    return all(name.endswith((".abi3.so", ".abi3.pyd")) for name in binaries)
+
+
+def find_wheel(version: str, suffix: str) -> Path | None:
+    wheels = [Path(wheel) for wheel in glob.glob(wheel_pattern(version))]
+
+    for wheel in wheels:
+        if matches(wheel, suffix):
+            logger.info("%s: %s", green("Found wheel"), wheel)
+            return wheel
+
+    if not wheels:
+        msg = f"No wheel found for {version}"
         raise RuntimeError(msg)
 
-    wheel_path = Path(wheels[0])
-    logger.info("%s: %s", green("Found wheel"), wheel_path)
-    return wheel_path
+    logger.warning(
+        "%s: no wheel matches %s, skipping %s: %s",
+        yellow("Incompatible"),
+        suffix,
+        version,
+        ", ".join(wheel.name for wheel in wheels),
+    )
+    return None
 
 
 def uv_python(request: str) -> Path:
@@ -140,6 +178,11 @@ def venv_python(venv: Path) -> Path:
 
 def run_profile(version: str) -> None:
     python = uv_python(python_request(version))
+    wheel = find_wheel(version, ext_suffix(python))
+
+    if wheel is None:
+        return
+
     venv = Path(".pgo-venv") / version.replace(".", "_")
     shutil.rmtree(venv, ignore_errors=True)
     subprocess.run(["uv", "venv", str(venv), "--python", str(python)], check=True)
@@ -154,7 +197,7 @@ def run_profile(version: str) -> None:
             str(executable),
             "--force-reinstall",
             "--no-deps",
-            str(find_wheel(version)),
+            str(wheel),
         ],
         check=True,
     )
